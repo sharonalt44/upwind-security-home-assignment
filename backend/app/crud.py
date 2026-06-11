@@ -28,3 +28,15 @@ def create_user(db: Session, user: UserCreate):
     db.refresh(db_user)  # Refresh to capture the newly generated auto-increment ID
     
     return db_user
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verify a plaintext password against its stored bcrypt hash.
+    The salt is automatically extracted from the hashed_password string.
+    """
+    # Convert both the plain password and the stored hash into bytes for bcrypt
+    plain_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    
+    # Securely check if the plain password matches the cryptographic hash
+    return bcrypt.checkpw(plain_bytes, hashed_bytes)
