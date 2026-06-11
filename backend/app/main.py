@@ -1,24 +1,19 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from app.routes import auth
+from app.database import Base, engine  # Informs FastAPI where SQLAlchemy Base and engine are located
 
-app = FastAPI(title="PenguWave Security Operations Portal API")
+# Automatically create all database tables defined in models.py if they do not exist yet
+Base.metadata.create_all(bind=engine)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title="PenguWave - Security Operations Portal",
+    description="Secure Backend API for SOC Analyst Management",
+    version="1.0.0"
 )
 
+# Register the authentication router with the central FastAPI application
+app.include_router(auth.router)
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("app.main:app", host="0.0.0.0", port=3001, reload=True)
-
+@app.get("/")
+def root():
+    return {"status": "healthy", "message": "PenguWave API is up and running"}
