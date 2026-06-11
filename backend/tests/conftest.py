@@ -46,3 +46,14 @@ def client(db_session):
         yield test_client
     # Clear overrides after test complete
     app.dependency_overrides.clear()
+
+@pytest.fixture(autouse=True)
+def reset_failed_attempts_tracker():
+    """
+    Autouse fixture to completely clear the Brute-Force tracker before and after each test.
+    This prevents test cross-pollution and flaky failures.
+    """
+    from app.routes.auth import FAILED_ATTEMPTS_TRACKER
+    FAILED_ATTEMPTS_TRACKER.clear()
+    yield
+    FAILED_ATTEMPTS_TRACKER.clear()
