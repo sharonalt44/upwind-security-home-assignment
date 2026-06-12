@@ -75,3 +75,68 @@ def test_login_counter_resets_on_success(client):
     
     # Assert the tracker was successfully wiped for this user email registry
     assert email not in FAILED_ATTEMPTS_TRACKER
+
+
+
+def test_register_user_with_string_timestamp_id(client):
+    """Test Mission 4: Verify backend generates and stores a string timestamp ID correctly upon registration."""
+    user_data = {
+        "email": "react_user@penguwave.io",
+        "password": "SecurePassword123"
+    }
+    response = client.post("/auth/register", json=user_data)
+    assert response.status_code == status.HTTP_201_CREATED
+    
+    # Verify the backend generated an active, dynamic string representation of a timestamp id
+    returned_id = response.json()["id"]
+    assert isinstance(returned_id, str)
+    assert len(returned_id) >= 10  # Confirms it is a long timestamp string
+
+
+def test_get_events_authenticated_analyst_success(client, db_session):
+    """Test Mission 5: Authenticated analyst with base system ID '2' can view their own telemetry events (usr-002)."""
+    from app.models import User
+
+    # 1. Register normally via the API router to handle all password hashing internally
+    user_credentials = {"email": "analyst@penguwave.io", "password": "SecurePassword123"}
+    client.post("/auth/register", json=user_credentials)
+    
+    # 2. Force change the generated ID to "2" in the DB to align with mock_events.json seed state
+    analyst_user = db_session.query(User).filter_by(email="analyst@penguwave.io").first()
+    analyst_user.id = "2"
+    db_session.commit()
+
+    # 3. Log in with the registered credentials to set the HttpOnly cookie session
+    client.post("/auth/login", json=user_credentials)
+
+    # 4. Query the events endpoint
+    response = client.get("/events")
+    assert response.status_code == status.HTTP_200_OK
+    
+    # 5. Assert that the list is populated and every event belongs strictly to usr-002
+    events = response.json()
+    assert len(events) > 0
+    for event in events:
+        assert event["userId"] == "usr-002"
+
+
+def test_get_events_bola_mitigation_for_new_user(client):
+    """Test Mission 5 (BOLA): A newly registered user with a generated ID is isolated and gets empty telemetry."""
+    user_credentials = {"email": "new_guy@penguwave.io", "password": "SecurePassword123"}
+    client.post("/auth/register", json=user_credentials)
+    client.post("/auth/login", json=user_credentials)
+
+    # Query the events endpoint
+    response = client.get("/events")
+    assert response.status_code == status.HTTP_200_OK
+    
+    # BOLA enforcement: Returns empty list because their dynamic string ID prefix has no matched mock data
+    assert response.json() == []
+
+
+def test_get_events_unauthenticated_fails(client):
+    """Test Security Guardrail: Unauthenticated requests to /events are blocked with precise error messaging."""
+    response = client.get("/events")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    # 🔄 Updated to match your backend's exact custom error string
+    assert response.json()["detail"] == "Not authenticated. Access token missing."
