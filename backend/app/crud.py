@@ -1,31 +1,37 @@
+import time
 from sqlalchemy.orm import Session
 from app.models import User
 from app.schemas import UserCreate
 import bcrypt
 
-# 1. Check if a user already exists in the database by their username
-def get_user_by_username(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
+def get_user_by_email(db: Session, email: str):
+    """Fetches a single user record from the DB matching the validated email."""
+    return db.query(User).filter(User.email == email).first()
 
-# 2. Create a new SOC user in the DB with a securely hashed password
-def create_user(db: Session, user: UserCreate):
-    # Securely hash the plain text password using bcrypt
+def create_user(db: Session, user: UserCreate, user_id: str = None):
+    """
+    Creates a new persistent User record.
+    Accepts an optional user_id to support React-side generated IDs (e.g., String(Date.now())).
+    """
     password_bytes = user.password.encode('utf-8')
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
     
+    final_id = user_id if user_id else str(int(time.time() * 1000))
+    
     # Map the Pydantic data to the SQLAlchemy model
     db_user = User(
-        username=user.username,
+        id=final_id,
+        email=user.email,  
         password_hash=hashed_password,
         role=user.role,
-        status="approved"  # Automatically approved for now
+        status=user.status if user.status else "active"  
     )
     
     # Save into the SQLite database
     db.add(db_user)
     db.commit()
-    db.refresh(db_user)  # Refresh to capture the newly generated auto-increment ID
+    db.refresh(db_user)
     
     return db_user
 
@@ -34,7 +40,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Verify a plaintext password against its stored bcrypt hash.
     The salt is automatically extracted from the hashed_password string.
     """
-    # Convert both the plain password and the stored hash into bytes for bcrypt
     plain_bytes = plain_password.encode('utf-8')
     hashed_bytes = hashed_password.encode('utf-8')
     

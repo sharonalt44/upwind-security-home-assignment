@@ -1,16 +1,17 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import Optional
 from typing import List
 
 class UserBase(BaseModel):
-    username: str
+    email: EmailStr
 
 class UserCreate(UserBase):
     password: str
     role: Optional[str] = "analyst"
+    status: Optional[str] = "active"
 
 class UserResponse(UserBase):
-    id: int
+    id: str
     role: str
     status: str
 
@@ -18,7 +19,7 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 class UserLogin(BaseModel):
-    username: str
+    email: EmailStr
     password: str
 
     # Updated modern configuration style for Pydantic V2
@@ -31,12 +32,10 @@ class EventResponse(BaseModel):
     severity: str
     title: str
     description: str
-    assetHostname: str
+    assetHostname: str  
     assetIp: str
     sourceIp: str
     tags: List[str]
     userId: str
 
-    class Config:
-        # Allows Pydantic to read data even if it comes as an object/attributes
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
