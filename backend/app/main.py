@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routes import auth
+from app.routes import auth,events
 from app.database import Base, engine  # Informs FastAPI where SQLAlchemy Base and engine are located
 
 # Automatically create all database tables defined in models.py if they do not exist yet
@@ -13,6 +13,7 @@ app = FastAPI(
 
 # Register the authentication router with the central FastAPI application
 app.include_router(auth.router)
+app.include_router(events.router)
 
 @app.get("/")
 def root():

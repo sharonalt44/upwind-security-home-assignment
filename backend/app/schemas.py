@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
+from typing import List
 
 class UserBase(BaseModel):
     username: str
@@ -22,3 +23,20 @@ class UserLogin(BaseModel):
 
     # Updated modern configuration style for Pydantic V2
     model_config = ConfigDict(from_attributes=True)
+
+
+class EventResponse(BaseModel):
+    id: str
+    timestamp: str
+    severity: str
+    title: str
+    description: str
+    assetHostname: str
+    assetIp: str
+    sourceIp: str
+    tags: List[str]
+    userId: str
+
+    class Config:
+        # Allows Pydantic to read data even if it comes as an object/attributes
+        from_attributes = True
