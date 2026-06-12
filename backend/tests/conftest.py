@@ -1,11 +1,11 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool  # CRITICAL: Forces SQLite to share the same in-memory DB across connections
+from sqlalchemy.pool import StaticPool 
 from fastapi.testclient import TestClient
 
 from app.database import Base, get_db
-from app.models import User  # Registers the User model mapping before running create_all
+from app.models import User 
 from app.main import app
 
 # Setup an isolated, in-memory SQLite database for test execution
@@ -56,4 +56,5 @@ def reset_failed_attempts_tracker():
     from app.routes.auth import FAILED_ATTEMPTS_TRACKER
     FAILED_ATTEMPTS_TRACKER.clear()
     yield
+    FAILED_ATTEMATTEMPTS_TRACKER = {}
     FAILED_ATTEMPTS_TRACKER.clear()
