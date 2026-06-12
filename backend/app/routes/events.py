@@ -19,12 +19,10 @@ EVENTS_FILE_PATH = os.path.join(_BACKEND_ROOT, "data", "mock_events.json")
 def get_security_events(current_user: User = Depends(get_current_user)):
     """
     Exposes protected security event data from the local JSON repository.
-    Only accessible by authenticated and approved analysts.
+    Enforces Strict Object-Level Authorization (BOLA/IDOR protection):
+    - Admins bypass filters and view all global logs.
+    - Analysts and Viewers are strictly isolated to their matching mock userId mapping.
     """
-    # 🛡️ Access Control: The Depends guard blocks unauthenticated users from reaching this block
-    
-    print(f"Reading events file from: {EVENTS_FILE_PATH}")
-
     # Verify the JSON repository exists on disk
     if not os.path.exists(EVENTS_FILE_PATH):
         raise HTTPException(
@@ -34,8 +32,23 @@ def get_security_events(current_user: User = Depends(get_current_user)):
         
     try:
         with open(EVENTS_FILE_PATH, "r", encoding="utf-8") as file:
-            events_data = json.load(file)
-        return events_data
+            all_events = json.load(file)
+            
+        # 👑 1. Admin bypass: Global visibility across the entire corporate perimeter
+        if current_user.role == "admin":
+            return all_events
+            
+        # 🛡️ 2. Analyst / Viewer dynamic isolation based on their persistent database ID string
+        # Maps user.id "2" to "usr-002", and user.id "3" to "usr-003"
+        expected_json_uid = f"usr-00{current_user.id}"
+        
+        filtered_events = [
+            event for event in all_events 
+            if event.get("userId") == expected_json_uid
+        ]
+        
+        return filtered_events
+
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

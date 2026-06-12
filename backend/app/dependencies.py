@@ -10,6 +10,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     Global authentication dependency.
     Extracts the JWT from the secure HttpOnly cookie, validates it,
     and returns the current authenticated user from the database.
+    Now fully aligned with the email-based frontend schema.
     """
     # 1. Extract the secure token from incoming request cookies
     token = request.cookies.get("access_token")
@@ -22,11 +23,13 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     try:
         # 2. Decode and verify the cryptographic signature of the token
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        username: str = payload.get("username")
-        if username is None:
+        
+        # 🔄 Changed from username to email to align with the frontend configuration
+        email: str = payload.get("email")
+        if email is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload."
+                detail="Invalid token payload: Email missing."
             )
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -39,19 +42,19 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
             detail="Invalid token."
         )
     
-    # 3. Ensure the user still exists in the database
-    user = crud.get_user_by_username(db, username=username)
+    # 3. Ensure the user still exists in the database (Searching via Email)
+    user = crud.get_user_by_email(db, email=email)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found."
         )
         
-    # 4. Defensive guard: check if the user account has been approved by an admin
-    if user.status != "approved":
+    # 4. Defensive guard: enforce account status access control
+    if user.status != "active":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is pending approval."
+            detail="Access denied. User account is disabled or inactive."
         )
         
     return user
