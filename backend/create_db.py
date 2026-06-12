@@ -22,7 +22,6 @@ try:
     if not existing_user:
         print(f"Creating initial admin user: {settings.FIRST_SUPERUSER_NAME}...")
         
-        # הצפנה ישירה ומאובטחת באמצעות bcrypt (הפיכת הסיסמה לבייטים וגיבוב)
         password_bytes = settings.FIRST_SUPERUSER_PASSWORD.encode('utf-8')
         salt = bcrypt.gensalt()
         hashed_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')

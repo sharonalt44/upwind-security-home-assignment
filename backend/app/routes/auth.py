@@ -7,11 +7,13 @@ from app.database import get_db
 from app.schemas import UserCreate, UserResponse, UserLogin
 from app import crud
 import jwt
+from app.config import settings
 
-# Secure Secret Management: Read from environment or fallback to a dev key (Never hardcode in production)
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "SUPER_SECRET_PENGUWAVE_KEY_FOR_SOC_PORTAL")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = settings.JWT_SECRET_KEY
+ALGORITHM = settings.JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+MAX_FAILED_ATTEMPTS = settings.MAX_FAILED_ATTEMPTS
+LOCKOUT_DURATION_MINUTES = settings.LOCKOUT_DURATION_MINUTES
 
 router = APIRouter(
     prefix="/auth",
@@ -20,10 +22,7 @@ router = APIRouter(
 
 # Global lock to guarantee atomic read-modify-write operations on the in-memory dictionary
 tracker_lock = threading.Lock()
-
 FAILED_ATTEMPTS_TRACKER = {}
-MAX_FAILED_ATTEMPTS = 5
-LOCKOUT_DURATION_MINUTES = 15
 
 def create_access_token(data: dict):
     """
@@ -80,7 +79,7 @@ def login_analyst(user_credentials: UserLogin, response: Response, db: Session =
                 
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Account is temporarily locked. Try again in {minutes_left} minutes."
+                    detail=f"Account is temporarily locked due to too many failed attempts. Please try again later."
                 )
 
     # 2. Fetch the user from the database
