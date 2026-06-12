@@ -1,4 +1,5 @@
 import os
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -13,7 +14,8 @@ class Settings(BaseSettings):
     MAX_FAILED_ATTEMPTS: int = 5
     LOCKOUT_DURATION_MINUTES: int = 15
 
-    class Config:
-        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    model_config = ConfigDict(
+        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    )
 
 settings = Settings()
