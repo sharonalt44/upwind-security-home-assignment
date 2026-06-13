@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app import crud
+from app.models import User
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     """
@@ -58,3 +59,16 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         )
         
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """
+    RBAC Dependency: Validates that the authenticated session holder
+    possesses administrative privileges before granting access.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    return current_user

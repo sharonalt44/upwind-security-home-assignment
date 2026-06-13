@@ -19,7 +19,6 @@ def create_user(db: Session, user: UserCreate, user_id: str = None):
     
     final_id = user_id if user_id else str(int(time.time() * 1000))
     
-    # Map the Pydantic data to the SQLAlchemy model
     db_user = User(
         id=final_id,
         email=user.email,  
@@ -28,7 +27,6 @@ def create_user(db: Session, user: UserCreate, user_id: str = None):
         status=user.status if user.status else "active"  
     )
     
-    # Save into the SQLite database
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -43,5 +41,4 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     plain_bytes = plain_password.encode('utf-8')
     hashed_bytes = hashed_password.encode('utf-8')
     
-    # Securely check if the plain password matches the cryptographic hash
     return bcrypt.checkpw(plain_bytes, hashed_bytes)
