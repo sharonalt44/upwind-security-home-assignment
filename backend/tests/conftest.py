@@ -47,6 +47,23 @@ def client(db_session):
     # Clear overrides after test complete
     app.dependency_overrides.clear()
 
+@pytest.fixture
+def admin_client(client, db_session):
+    """Authenticated admin session for protected admin-only endpoints."""
+    from app.schemas import UserCreate
+    from app import crud
+
+    crud.create_user(
+        db_session,
+        UserCreate(email="admin@test.io", password="AdminPass123!", role="admin"),
+    )
+    login_resp = client.post(
+        "/auth/login",
+        json={"email": "admin@test.io", "password": "AdminPass123!"},
+    )
+    assert login_resp.status_code == 200
+    return client
+
 @pytest.fixture(autouse=True)
 def reset_failed_attempts_tracker():
     """
@@ -56,5 +73,4 @@ def reset_failed_attempts_tracker():
     from app.routes.auth import FAILED_ATTEMPTS_TRACKER
     FAILED_ATTEMPTS_TRACKER.clear()
     yield
-    FAILED_ATTEMATTEMPTS_TRACKER = {}
     FAILED_ATTEMPTS_TRACKER.clear()
