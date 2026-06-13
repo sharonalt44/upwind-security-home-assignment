@@ -8,6 +8,8 @@ from app.schemas import UserCreate, UserResponse, UserLogin
 from app import crud
 import jwt
 from app.config import settings
+from app.dependencies import get_current_user, require_admin
+from app.models import User
 
 SECRET_KEY = settings.JWT_SECRET_KEY
 ALGORITHM = settings.JWT_ALGORITHM
@@ -35,9 +37,13 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register_analyst(user: UserCreate, db: Session = Depends(get_db)):
+def register_analyst(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
     """
-    Register a new SOC analyst or admin using email validation.
+    Register a new system user. Restricted to authenticated administrators only.
     """
     # 🔄 Changed check from username to email
     db_user = crud.get_user_by_email(db, email=user.email)
@@ -121,3 +127,26 @@ def login_analyst(user_credentials: UserLogin, response: Response, db: Session =
     
     # Returning the full user object to synch up frontend state immediately
     return db_user
+
+
+
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """
+    Returns the currently authenticated user's profile for frontend RBAC evaluation.
+    """
+    return current_user
+
+
+@router.post("/logout")
+def logout_analyst(response: Response):
+    """
+    Standard Session Cleanup: Destroys the cryptographic session state 
+    by forcing the browser to purge the secure HttpOnly auth cookie.
+    """
+    response.delete_cookie(
+        key="access_token", 
+        httponly=True, 
+        samesite="lax"
+    )
+    return {"message": "Logged out successfully"}
