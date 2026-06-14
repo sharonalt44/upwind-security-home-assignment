@@ -1,0 +1,9 @@
+node_modules/
+dist/
+backend/.venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/users.db
+backend/penguwave.db
+backend/.env
+.DS_Store
