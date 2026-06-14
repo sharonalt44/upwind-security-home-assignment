@@ -1,11 +1,11 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool  # CRITICAL: Forces SQLite to share the same in-memory DB across connections
+from sqlalchemy.pool import StaticPool 
 from fastapi.testclient import TestClient
 
 from app.database import Base, get_db
-from app.models import User  # Registers the User model mapping before running create_all
+from app.models import User 
 from app.main import app
 
 # Setup an isolated, in-memory SQLite database for test execution
@@ -46,6 +46,23 @@ def client(db_session):
         yield test_client
     # Clear overrides after test complete
     app.dependency_overrides.clear()
+
+@pytest.fixture
+def admin_client(client, db_session):
+    """Authenticated admin session for protected admin-only endpoints."""
+    from app.schemas import UserCreate
+    from app import crud
+
+    crud.create_user(
+        db_session,
+        UserCreate(email="admin@test.io", password="AdminPass123!", role="admin"),
+    )
+    login_resp = client.post(
+        "/auth/login",
+        json={"email": "admin@test.io", "password": "AdminPass123!"},
+    )
+    assert login_resp.status_code == 200
+    return client
 
 @pytest.fixture(autouse=True)
 def reset_failed_attempts_tracker():

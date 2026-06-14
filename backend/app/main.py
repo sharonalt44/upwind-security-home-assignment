@@ -1,9 +1,20 @@
-from fastapi import FastAPI
-from app.routes import auth
-from app.database import Base, engine  # Informs FastAPI where SQLAlchemy Base and engine are located
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
+from app.database import Base, engine
+from app.routes import auth, events, users
 
-# Automatically create all database tables defined in models.py if they do not exist yet
+# 🛡️ Updated the import name to match the newer slowapi version framework
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+from app import models 
+
 Base.metadata.create_all(bind=engine)
+
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="PenguWave - Security Operations Portal",
@@ -11,9 +22,32 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Register the authentication router with the central FastAPI application
+app.state.limiter = limiter
+# 🛡️ Updated the exception handler reference
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
+    allow_credentials=True,                  
+    allow_methods=["*"],                     
+    allow_headers=["*"],                     
+)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "An internal server error occurred. The incident has been logged."
+        }
+    )
+
 app.include_router(auth.router)
+app.include_router(events.router)
+app.include_router(users.router)
 
 @app.get("/")
-def root():
+@limiter.limit("5/minute")
+def root(request: Request): 
     return {"status": "healthy", "message": "PenguWave API is up and running"}
