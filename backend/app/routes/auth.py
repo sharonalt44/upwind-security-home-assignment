@@ -1,7 +1,7 @@
 import os
 import threading
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import UserCreate, UserResponse, UserLogin
@@ -17,6 +17,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 MAX_FAILED_ATTEMPTS = settings.MAX_FAILED_ATTEMPTS
 LOCKOUT_DURATION_MINUTES = settings.LOCKOUT_DURATION_MINUTES
 
+DUMMY_HASH = "$2b$10$X7vH7J379.8G0C9Y6H2kOOvR/K5C2hE9ZgG4Vf3E5K6mG7n8o9p1q"
+
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"]
@@ -24,6 +26,9 @@ router = APIRouter(
 
 # Global lock to guarantee atomic read-modify-write operations on the in-memory dictionary
 tracker_lock = threading.Lock()
+# NOTE (Production Environment): For distributed and scalable setups, 
+# this memory-bound dictionary should be replaced with a distributed cache like Redis 
+# to maintain state consistency across multiple app instances and prevent data loss on reset.
 FAILED_ATTEMPTS_TRACKER = {}
 
 def create_access_token(data: dict):
@@ -45,7 +50,6 @@ def register_analyst(
     """
     Register a new system user. Restricted to authenticated administrators only.
     """
-    # 🔄 Changed check from username to email
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(
@@ -54,16 +58,16 @@ def register_analyst(
         )
     return crud.create_user(db=db, user=user)
 
-@router.post("/login", response_model=UserResponse)  # 🔄 Added response model to return user data
+@router.post("/login", response_model=UserResponse)
 def login_analyst(user_credentials: UserLogin, response: Response, db: Session = Depends(get_db)):
     """
-    Authenticate an analyst via email with Brute-Force protection and issue a secure JWT cookie.
+    Authenticate an analyst via email with Brute-Force protection,
+    User Enumeration protection (Dummy Hash), and issue a secure JWT cookie.
     """
-    # 🔄 Switched from username tracking to email tracking
     email = user_credentials.email
     current_time = datetime.now(timezone.utc)
 
-    # Thread-Safe Lockout Evaluation
+    # 1. Thread-Safe Lockout Evaluation
     with tracker_lock:
         user_track = FAILED_ATTEMPTS_TRACKER.get(email)
 
@@ -79,14 +83,18 @@ def login_analyst(user_credentials: UserLogin, response: Response, db: Session =
             else:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Account is temporarily locked due to too many failed attempts. Please try again later."
+                    detail="Too many failed login attempts from this identifier. Please try again later."
                 )
 
-    # 2. Fetch the user from the database via Email 🔄
+    # 2. Fetch the user from the database via Email
     db_user = crud.get_user_by_email(db, email=email)
+ 
+    target_hash = db_user.password_hash if db_user else DUMMY_HASH
     
     # 3. Verify existence and validate password securely using bcrypt
-    if not db_user or not crud.verify_password(user_credentials.password, db_user.password_hash):
+    is_password_correct = crud.verify_password(user_credentials.password, target_hash)
+    
+    if not db_user or not is_password_correct:
         with tracker_lock:
             if email not in FAILED_ATTEMPTS_TRACKER:
                 FAILED_ATTEMPTS_TRACKER[email] = {"count": 1, "locked_at": None}
@@ -100,7 +108,7 @@ def login_analyst(user_credentials: UserLogin, response: Response, db: Session =
             detail="Invalid email or password."
         )
         
-    # 🔒 Defensive check: Block inactive accounts immediately during login
+ 
     if db_user.status != "active":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -112,7 +120,7 @@ def login_analyst(user_credentials: UserLogin, response: Response, db: Session =
         if email in FAILED_ATTEMPTS_TRACKER:
             del FAILED_ATTEMPTS_TRACKER[email]
     
-    # 5. Generate Token and set the secure HttpOnly cookie (Mapping email in payload) 🔄
+    # 5. Generate Token and set the secure HttpOnly cookie
     token_data = {"id": db_user.id, "email": db_user.email}
     access_token = create_access_token(data=token_data)
     
@@ -120,14 +128,13 @@ def login_analyst(user_credentials: UserLogin, response: Response, db: Session =
         key="access_token",
         value=access_token,
         httponly=True,
-        max_age=1800,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         samesite="lax",
-        secure=False  # Set to True in production with HTTPS
+        secure=settings.COOKIE_SECURE,
+        path="/",
     )
     
-    # Returning the full user object to synch up frontend state immediately
     return db_user
-
 
 
 @router.get("/me", response_model=UserResponse)
@@ -139,14 +146,21 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-def logout_analyst(response: Response):
+def logout_analyst(request: Request, response: Response, db: Session = Depends(get_db)):
     """
-    Standard Session Cleanup: Destroys the cryptographic session state 
-    by forcing the browser to purge the secure HttpOnly auth cookie.
+    Secure Session Revocation: Extracts the active JWT token, registers it in 
+    the central token blacklist to prevent replay attacks, and forces the browser 
+    to purge the cookie.
     """
+    token = request.cookies.get("access_token")
+    if token:
+        crud.blacklist_token(db, token=token)
+
     response.delete_cookie(
-        key="access_token", 
-        httponly=True, 
-        samesite="lax"
+        key="access_token",
+        httponly=True,
+        samesite="lax",
+        secure=settings.COOKIE_SECURE,
+        path="/",
     )
     return {"message": "Logged out successfully"}

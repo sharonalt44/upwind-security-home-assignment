@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import SessionLocal
+from app.database import get_db
 from app.models import User, SecurityEvent
 from app.schemas import EventResponse, EventCreate, EventUpdate
 from app.dependencies import get_current_user
@@ -11,21 +11,13 @@ router = APIRouter(
     tags=["Events Data"]
 )
 
-# Relational persistence manager lifecycle wrapper (DB Session provider)
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 # ==========================================
-# 1. READ PERMISSION ENDPOINT (GET)
+# 1. READ PERMISSION ENDPOINT - ALL EVENTS (GET)
 # ==========================================
-@router.get("/", response_model=List[EventResponse])
+@router.get("", response_model=List[EventResponse])
 def get_security_events(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    Exposes protected security event logs directly from the relational storage engine[cite: 60, 67].
+    Exposes protected security event logs directly from the relational storage engine.
     Enforces Strict Object-Level Authorization (BOLA / IDOR mitigation pipeline):
     - Admins bypass filters entirely, gaining total structural insight over the environment.
     - Analysts and Viewers are confined dynamically to events matching their session profile ID.
@@ -39,9 +31,40 @@ def get_security_events(current_user: User = Depends(get_current_user), db: Sess
 
 
 # ==========================================
-# 2. WRITE PERMISSION ENDPOINT (POST)
+# 2. READ PERMISSION ENDPOINT - SINGLE EVENT (GET)
 # ==========================================
-@router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
+@router.get("/{event_id}", response_model=EventResponse)
+def get_single_security_event(
+    event_id: str, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Resolves a specific security incident payload.
+    Enforces Object-Level Authorization checking logic to block horizontal privilege 
+    escalation if an analyst tries to query an unassigned incident ID.
+    """
+    event = db.query(SecurityEvent).filter(SecurityEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Security incident profile not found."
+        )
+
+    # 🛡️ BOLA Guardrail: Restrict viewing unless the client is an Admin or the designated resource owner
+    if current_user.role != "admin" and event.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access Denied: You do not possess authorized clearance to inspect this telemetry instance."
+        )
+        
+    return event
+
+
+# ==========================================
+# 3. WRITE PERMISSION ENDPOINT (POST)
+# ==========================================
+@router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 def create_security_event(event_in: EventCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Enforces RBAC verification rules on log ingestion pipelines.
@@ -53,7 +76,20 @@ def create_security_event(event_in: EventCreate, current_user: User = Depends(ge
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access Denied: Only administrators possess authorized clearance to create new security logs."
         )
-    
+
+    # Validate that the targeted owner profile actually exists and is active before linking records
+    owner = db.query(User).filter(
+    User.id == event_in.user_id, 
+    User.deleted_at.is_(None),
+    User.status == "active"
+        ).first()
+
+    if not owner:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Target assignment user_id does not exist or is currently disabled within the identity registry.",
+        )
+        
     # Instance compilation upon successful validation check
     new_event = SecurityEvent(
         id=event_in.id,
@@ -62,6 +98,7 @@ def create_security_event(event_in: EventCreate, current_user: User = Depends(ge
         asset=event_in.asset,
         source_ip=event_in.source_ip,
         timestamp=event_in.timestamp,
+        tags=event_in.tags or [],
         user_id=event_in.user_id # Linking log context explicitly to targeted analyst owner 
     )
     db.add(new_event)
@@ -71,15 +108,15 @@ def create_security_event(event_in: EventCreate, current_user: User = Depends(ge
 
 
 # ==========================================
-# 3. PURGE PERMISSION ENDPOINT (DELETE)
+# 4. PURGE PERMISSION ENDPOINT (DELETE)
 # ==========================================
 @router.delete("/{event_id}", status_code=status.HTTP_200_OK)
 def delete_security_event(event_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    Protects log tracking indexes from rogue data deletion maneuvers[cite: 49].
-    Guarantees strict audit trace retention across operational dashboards[cite: 31].
+    Protects log tracking indexes from rogue data deletion maneuvers.
+    Guarantees strict audit trace retention across operational dashboards.
     """
-    # 🛑 Access Guardrail: Prevent rogue operators or compromised tokens from clearing event tracks [cite: 49, 63]
+    # 🛑 Access Guardrail: Prevent rogue operators or compromised tokens from clearing event tracks 
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -98,7 +135,7 @@ def delete_security_event(event_id: str, current_user: User = Depends(get_curren
 
 
 # ==========================================
-# 4. UPDATE PERMISSION ENDPOINT (PATCH)
+# 5. UPDATE PERMISSION ENDPOINT (PATCH)
 # ==========================================
 @router.patch("/{event_id}", response_model=EventResponse)
 def update_security_event(
@@ -137,11 +174,18 @@ def update_security_event(
             detail="Security event not found or you are unauthorized to modify this resource."
         )
 
-    # 🔒 Step 2: Evaluate field-level assignment metrics (RBAC Safeguard)
+   # 🔒 Step 2: Evaluate field-level assignment metrics (RBAC Safeguard)
     update_data = event_in.model_dump(exclude_unset=True)
     
+    # 🛠️ Empty Payload Validation: Prevent ghost commits to the database
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields provided for update."
+        )
+    
     # Restrict administrative field modifications from falling into analyst requests
-    admin_only_fields = {"severity", "user_id", "title", "asset", "source_ip"}
+    admin_only_fields = {"severity", "user_id", "title", "asset", "source_ip", "tags"}
     if current_user.role != "admin":
         blocked = admin_only_fields.intersection(update_data.keys())
         if blocked:
