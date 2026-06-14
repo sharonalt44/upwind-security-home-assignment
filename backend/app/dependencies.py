@@ -8,12 +8,11 @@ from app.models import User
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     """
-    Global authentication dependency.
-    Extracts the JWT from the secure HttpOnly cookie, validates it,
-    and returns the current authenticated user from the database.
-    Now fully aligned with the email-based frontend schema.
+    Global authentication dependency middleware.
+    Extracts the JWT from the secure HttpOnly cookie, validates its cryptographic signature,
+    verifies session status against the token blacklist, and ensures the user account is active.
     """
-    # 1. Extract the secure token from incoming request cookies
+    # 1. Extract the secure session token from incoming request cookies
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(
@@ -21,11 +20,19 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
             detail="Not authenticated. Access token missing."
         )
     
+    # 2. Cryptographic Session Revocation Check (Token Blacklist)
+    # Validates that the user has not explicitly invalidated this session via logout
+    is_blacklisted = crud.is_token_blacklisted(db, token=token)
+    if is_blacklisted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked. Please login again."
+        )
+    
     try:
-        # 2. Decode and verify the cryptographic signature of the token
+        # 3. Decode and verify the cryptographic integrity of the token payload
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         
-        # 🔄 Changed from username to email to align with the frontend configuration
         email: str = payload.get("email")
         if email is None:
             raise HTTPException(
@@ -43,7 +50,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
             detail="Invalid token."
         )
     
-    # 3. Ensure the user still exists in the database (Searching via Email)
+    # 4. Fetch the persistent user record via Email to ensure existence
     user = crud.get_user_by_email(db, email=email)
     if not user:
         raise HTTPException(
@@ -51,7 +58,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
             detail="User not found."
         )
         
-    # 4. Defensive guard: enforce account status access control
+    # 5. Defensive Guard: Enforce strict account state access controls
     if user.status != "active":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -63,12 +70,33 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """
-    RBAC Dependency: Validates that the authenticated session holder
-    possesses administrative privileges before granting access.
+    Role-Based Access Control (RBAC) dependency.
+    Validates that the authenticated session holder possesses explicit administrative 
+    privileges before granting routing access to administrative payloads.
     """
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required.",
         )
+    return current_user
+
+
+def verify_user_ownership_or_admin(request: Request, current_user: User = Depends(get_current_user)):
+  """
+    Anti-BOLA / IDOR (Broken Object Level Authorization) validation dependency.
+    Extracts the resource target identifier directly from the URL path parameters 
+    and guarantees that non-admin analysts can exclusively access or modify their own data.
+    """
+    requested_user_id = request.path_params.get("user_id")
+    
+    if requested_user_id:
+        requested_user_id = str(requested_user_id)
+
+        if current_user.role != "admin" and str(current_user.id) != requested_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You cannot view or modify another user's resource."
+            )
+            
     return current_user
