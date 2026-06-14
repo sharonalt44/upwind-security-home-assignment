@@ -83,7 +83,7 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 
 def verify_user_ownership_or_admin(request: Request, current_user: User = Depends(get_current_user)):
-  """
+    """
     Anti-BOLA / IDOR (Broken Object Level Authorization) validation dependency.
     Extracts the resource target identifier directly from the URL path parameters 
     and guarantees that non-admin analysts can exclusively access or modify their own data.
