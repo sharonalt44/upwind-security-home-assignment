@@ -63,46 +63,15 @@ POST /api/v1/addon/analyze
 
 # 📂 Repository Structure
 
-```text
-repository-root/
-├── README.md
-├── run.py
-│
-├── part1-gmail-addon/
-│   ├── Code.gs
-│   ├── appsscript.json
-│   └── README.md
-│
-└── part2-secure-portal/
-    ├── backend/
-    │   ├── app/
-    │   │   ├── routes/
-    │   │   ├── config.py
-    │   │   ├── crud.py
-    │   │   ├── database.py
-    │   │   ├── dependencies.py
-    │   │   ├── main.py
-    │   │   ├── models.py
-    │   │   └── schemas.py
-    │   │
-    │   ├── create_db.py
-    │   ├── requirements.txt
-    │   ├── .env.example
-    │   └── README.md
-    │
-    ├── src/
-    │   ├── components/
-    │   ├── context/
-    │   ├── pages/
-    │   ├── utils/
-    │   ├── api.ts
-    │   ├── App.tsx
-    │   └── main.tsx
-    │
-    ├── package.json
-    ├── vite.config.ts
-    └── THREAT_THINKING.md
-```
+| Path | Purpose |
+|--------|---------|
+| `part1-gmail-addon/` | Gmail Add-on implementation |
+| `part2-secure-portal/backend/app/routes/` | Authentication, user, event and email analysis APIs |
+| `part2-secure-portal/backend/README.md` | Backend setup and configuration guide |
+| `part2-secure-portal/src/` | React frontend application |
+| `run.py` | Project bootstrap and startup script |
+
+
 
 # 🚀 Quick Start
 
