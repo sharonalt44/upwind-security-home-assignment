@@ -62,7 +62,7 @@ export async function login(email: string, password: string) {
 /** * GET /events — Fetches telemetry chunks dynamically.
  * Fully integrates client UI metrics alongside production database pagination loops.
  */
-export async function getEvents(skip: number = 0, limit: number = 10) {
+export async function getEvents(skip: number = 0, limit: number = 50) {
   const res = await fetch(`${API_URL}/events?skip=${skip}&limit=${limit}`, {
     method: "GET",
     credentials: "include",

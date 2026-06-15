@@ -17,7 +17,7 @@ export default function EventsPage() {
 
   // 📄 Pagination States
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 10; // Limits rows per view to look clean and professional
+  const PAGE_SIZE = 50; // Limits rows per view to look clean and professional
 
   const loadEvents = useCallback(async () => {
     try {

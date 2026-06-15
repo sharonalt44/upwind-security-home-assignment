@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
-from app.routes import auth, events, users
 
 # 🛡️ Updated the import name to match the newer slowapi version framework
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -14,6 +13,7 @@ from app import models
 
 Base.metadata.create_all(bind=engine)
 
+# 1. Initialize Limiter first so child routes can safely import it later
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
@@ -43,11 +43,15 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-app.include_router(auth.router)
-app.include_router(events.router)
-app.include_router(users.router)
-
 @app.get("/")
 @limiter.limit("5/minute")
 def root(request: Request): 
     return {"status": "healthy", "message": "PenguWave API is up and running"}
+
+# 2. NOW import and include routers after everything else is fully registered
+from app.routes import auth, events, users, email_analyzer
+
+app.include_router(auth.router)
+app.include_router(events.router)
+app.include_router(users.router)
+app.include_router(email_analyzer.router)
