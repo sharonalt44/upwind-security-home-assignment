@@ -1,9 +1,11 @@
 /**
- * Centralized API module for the FastAPI backend (default local port 8000).
+ * Centralized API module for the FastAPI backend.
+ * Dynamically resolves target environment variables to prevent production environment breakage.
  */
 import type { UserCreatePayload, UserUpdatePayload } from "./types";
 
-const API_URL = "http://localhost:8000";
+// 🌐 Production Hardening: Resolve dynamic host addresses via environment setups
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 /** Normalizes FastAPI error payloads (string or validation array) into a readable message. */
 export function parseApiError(detail: unknown, fallback: string): string {
@@ -27,6 +29,20 @@ async function readApiError(res: Response, fallback: string): Promise<string> {
   return parseApiError(errorData.detail, fallback);
 }
 
+/** * ⏳ Centralized Session Guardrail: Monitors responses for 401 Unauthorized codes.
+ * Intercepts stale or missing tokens instantly and forces clean UI context redirection.
+ */
+function handleAuthInterception(res: Response): void {
+  if (res.status === 401) {
+    // Prevent localized loops if already trying to resolve session identity checks
+    if (!res.url.includes("/auth/me") && !res.url.includes("/auth/login")) {
+      console.warn("Session trace expired. Executing dynamic boundary relocation...");
+      // Wipe stale localized parameters and break execution back to auth routing
+      window.location.href = "/login?expired=true";
+    }
+  }
+}
+
 export async function login(email: string, password: string) {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
@@ -36,19 +52,24 @@ export async function login(email: string, password: string) {
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error(await readApiError(res, "Login failed"));
   }
 
   return res.json();
 }
 
-export async function getEvents() {
-  const res = await fetch(`${API_URL}/events`, {
+/** * GET /events — Fetches telemetry chunks dynamically.
+ * Fully integrates client UI metrics alongside production database pagination loops.
+ */
+export async function getEvents(skip: number = 0, limit: number = 10) {
+  const res = await fetch(`${API_URL}/events?skip=${skip}&limit=${limit}`, {
     method: "GET",
     credentials: "include",
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error("Failed to fetch events");
   }
 
@@ -62,6 +83,7 @@ export async function getCurrentUser() {
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error("Not authenticated");
   }
 
@@ -77,6 +99,7 @@ export async function updateEvent(id: string, payload: Record<string, unknown>) 
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error(await readApiError(res, "Failed to update event"));
   }
 
@@ -90,6 +113,7 @@ export async function deleteEvent(id: string) {
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error(await readApiError(res, "Failed to delete event"));
   }
 
@@ -104,6 +128,7 @@ export async function getUsers() {
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error(await readApiError(res, "Failed to fetch users"));
   }
 
@@ -120,6 +145,7 @@ export async function createUser(payload: UserCreatePayload) {
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error(await readApiError(res, "Failed to create user"));
   }
 
@@ -136,6 +162,7 @@ export async function updateUser(id: string, payload: UserUpdatePayload) {
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error(await readApiError(res, "Failed to update user"));
   }
 
@@ -150,6 +177,7 @@ export async function deleteUser(id: string) {
   });
 
   if (!res.ok) {
+    handleAuthInterception(res);
     throw new Error(await readApiError(res, "Failed to delete user"));
   }
 

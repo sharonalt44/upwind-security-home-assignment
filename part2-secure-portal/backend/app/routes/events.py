@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.database import get_db
 from app.models import User, SecurityEvent
 from app.schemas import EventResponse, EventCreate, EventUpdate
 from app.dependencies import get_current_user
+
+# Import the centralized rate limiter instance from your main application setup
+# (Assumes slowapi Limiter instance is initialized in your ecosystem, e.g., in main or a shared utility)
+from app.main import limiter 
 
 router = APIRouter(
     prefix="/events",
@@ -15,19 +19,23 @@ router = APIRouter(
 # 1. READ PERMISSION ENDPOINT - ALL EVENTS (GET)
 # ==========================================
 @router.get("", response_model=List[EventResponse])
-def get_security_events(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_security_events(
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100
+):
     """
     Exposes protected security event logs directly from the relational storage engine.
-    Enforces Strict Object-Level Authorization (BOLA / IDOR mitigation pipeline):
-    - Admins bypass filters entirely, gaining total structural insight over the environment.
-    - Analysts and Viewers are confined dynamically to events matching their session profile ID.
+    Enforces Strict Object-Level Authorization (BOLA / IDOR mitigation pipeline).
+    Incorporates query pagination (skip/limit parameters) to prevent server resource exhaustion.
     """
-    # 👑 Admin Bypass Rule: Full corporate scope oversight
+    # 👑 Admin Bypass Rule: Full corporate scope oversight with pagination controls
     if current_user.role == "admin":
-        return db.query(SecurityEvent).all()
+        return db.query(SecurityEvent).offset(skip).limit(limit).all()
         
     # 🛡️ BOLA Isolation Query: Dynamic context extraction restricting profile leakage 
-    return db.query(SecurityEvent).filter(SecurityEvent.user_id == current_user.id).all()
+    return db.query(SecurityEvent).filter(SecurityEvent.user_id == current_user.id).offset(skip).limit(limit).all()
 
 
 # ==========================================
@@ -65,10 +73,16 @@ def get_single_security_event(
 # 3. WRITE PERMISSION ENDPOINT (POST)
 # ==========================================
 @router.post("", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
-def create_security_event(event_in: EventCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def create_security_event(
+    request: Request, # Required by slowapi for signature tracking
+    event_in: EventCreate, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     """
     Enforces RBAC verification rules on log ingestion pipelines.
-    Rejects actions from non-privileged system connections instantly.
+    Protected by rate-limiting (10 requests/min) to prevent automated flooding or DoS attempts on creation queries.
     """
     # 🛑 Access Guardrail: Terminate requests if the validation signature isn't 'admin' 
     if current_user.role != "admin":
@@ -79,10 +93,10 @@ def create_security_event(event_in: EventCreate, current_user: User = Depends(ge
 
     # Validate that the targeted owner profile actually exists and is active before linking records
     owner = db.query(User).filter(
-    User.id == event_in.user_id, 
-    User.deleted_at.is_(None),
-    User.status == "active"
-        ).first()
+        User.id == event_in.user_id, 
+        User.deleted_at.is_(None),
+        User.status == "active"
+    ).first()
 
     if not owner:
         raise HTTPException(
@@ -111,10 +125,16 @@ def create_security_event(event_in: EventCreate, current_user: User = Depends(ge
 # 4. PURGE PERMISSION ENDPOINT (DELETE)
 # ==========================================
 @router.delete("/{event_id}", status_code=status.HTTP_200_OK)
-def delete_security_event(event_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def delete_security_event(
+    request: Request, # Required by slowapi for signature tracking
+    event_id: str, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     """
     Protects log tracking indexes from rogue data deletion maneuvers.
-    Guarantees strict audit trace retention across operational dashboards.
+    Protected by strict rate-limiting (5 requests/min) to mitigate malicious API abuse or programmatic tampering logs wiping.
     """
     # 🛑 Access Guardrail: Prevent rogue operators or compromised tokens from clearing event tracks 
     if current_user.role != "admin":
@@ -146,9 +166,7 @@ def update_security_event(
 ):
     """
     Updates operational event metrics dynamically.
-    Enforces dual-layer authorization mapping based on user clearance tiers:
-    - Admins can locate and modify any structural log field across the database.
-    - Analysts are strictly bound via validation check to their assigned identity rows.
+    Enforces dual-layer authorization mapping based on user clearance tiers.
     """
     if current_user.role == "viewer":
         raise HTTPException(
@@ -158,7 +176,6 @@ def update_security_event(
 
     # 👑 Step 1: Resolve the targeted record from the database based on roles
     if current_user.role == "admin":
-        # Admins query globally without resource ownership constraints
         event = db.query(SecurityEvent).filter(SecurityEvent.id == event_id).first()
     else:
         # 🛡️ Analyst BOLA Protection: Query is context-bound strictly to their user_id
@@ -174,7 +191,7 @@ def update_security_event(
             detail="Security event not found or you are unauthorized to modify this resource."
         )
 
-   # 🔒 Step 2: Evaluate field-level assignment metrics (RBAC Safeguard)
+    # 🔒 Step 2: Evaluate field-level assignment metrics (RBAC Safeguard)
     update_data = event_in.model_dump(exclude_unset=True)
     
     # 🛠️ Empty Payload Validation: Prevent ghost commits to the database

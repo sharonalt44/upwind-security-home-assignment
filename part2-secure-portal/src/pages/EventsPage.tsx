@@ -15,22 +15,36 @@ export default function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const loadEvents = useCallback(async () => {
-    const data = await getEvents();
-    setEvents(data.map((e: Record<string, unknown>) => normalizeEvent(e)));
-  }, []);
+  // 📄 Pagination States
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10; // Limits rows per view to look clean and professional
 
+  const loadEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Calculate how many items to skip based on current page
+      const skip = page * PAGE_SIZE;
+      const data = await getEvents(skip, PAGE_SIZE);
+      setEvents(data.map((e: Record<string, unknown>) => normalizeEvent(e)));
+      setLoading(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to load real-time telemetry");
+      setLoading(false);
+    }
+  }, [page]);
+
+  // Reload events automatically whenever the page changes
   useEffect(() => {
-    Promise.all([getEvents(), getCurrentUser().catch(() => null)])
-      .then(([data, user]) => {
-        setEvents(data.map((e: Record<string, unknown>) => normalizeEvent(e)));
+    loadEvents();
+  }, [loadEvents]);
+
+  // Load initial user identity role once on mount
+  useEffect(() => {
+    getCurrentUser()
+      .then((user) => {
         if (user?.role) setUserRole(user.role);
-        setLoading(false);
       })
-      .catch((err) => {
-        setError(err.message || "Failed to load real-time telemetry");
-        setLoading(false);
-      });
+      .catch(() => null);
   }, []);
 
   const showSuccess = (message: string) => {
@@ -67,7 +81,7 @@ export default function EventsPage() {
     return "green";
   };
 
-  if (loading) {
+  if (loading && events.length === 0) {
     return <div className="page-container"><p>Fetching secure telemetry streams...</p></div>;
   }
 
@@ -104,7 +118,7 @@ export default function EventsPage() {
       <div style={{ marginBottom: 16, display: "flex", gap: 12, alignItems: "center" }}>
         <input
           type="text"
-          placeholder="Search events..."
+          placeholder="Search current page..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ width: "100%", maxWidth: 400 }}
@@ -123,12 +137,7 @@ export default function EventsPage() {
 
       {search && (
         <p>
-          <span
-            dangerouslySetInnerHTML={{
-              __html: "Showing results for: <strong>" + search + "</strong>",
-            }}
-          />
-          {" "}({filtered.length} events)
+          Showing results for: <strong>{search}</strong> ({filtered.length} events found on this page)
         </p>
       )}
 
@@ -169,7 +178,30 @@ export default function EventsPage() {
         </tbody>
       </table>
 
-      {filtered.length === 0 && <p style={{ color: "#999" }}>No events found.</p>}
+      {filtered.length === 0 && <p style={{ color: "#999", padding: "10px 0" }}>No events found on this page.</p>}
+
+      {/* 📄 Pagination Control UI Component */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+            disabled={page === 0 || loading}
+            style={{ fontSize: 13, padding: "6px 12px", cursor: page === 0 ? "not-allowed" : "pointer" }}
+          >
+            ← Previous
+          </button>
+          <button
+            onClick={() => setPage((prev) => prev + 1)}
+            disabled={events.length < PAGE_SIZE || loading}
+            style={{ fontSize: 13, padding: "6px 12px", cursor: events.length < PAGE_SIZE ? "not-allowed" : "pointer" }}
+          >
+            Next →
+          </button>
+        </div>
+        <span style={{ fontSize: 13, color: "#666", fontWeight: 500 }}>
+          Page {page + 1} {loading && "(Refreshing...)"}
+        </span>
+      </div>
 
       <div style={{ marginTop: 12 }}>
         <button
@@ -178,13 +210,13 @@ export default function EventsPage() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "penguwave_events_export.json";
+            a.download = `penguwave_page_${page + 1}_export.json`;
             a.click();
             URL.revokeObjectURL(url);
           }}
           style={{ fontSize: 13 }}
         >
-          Export Events (JSON)
+          Export Active View (JSON)
         </button>
       </div>
 
