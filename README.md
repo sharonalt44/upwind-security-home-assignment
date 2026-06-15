@@ -61,92 +61,48 @@ POST /api/v1/addon/analyze
 7. Emails scoring above the configured threshold are persisted as SecurityEvent records.
 8. Created incidents become visible through the React analyst dashboard.
 
----
-
-```
-
 # 📂 Repository Structure
 
-📂 repository-root
+```text
+repository-root/
+├── README.md
+├── run.py
 │
-├── 📄 README.md
-├── 📜 run.py      # Automated environment setup and application launcher               
+├── part1-gmail-addon/
+│   ├── Code.gs
+│   ├── appsscript.json
+│   └── README.md
 │
-├── 📂 part1-gmail-addon/
-│   ├── 📄 Code.gs
-│   ├── 📄 appsscript.json
-│   └── 📄 README.md
-│
-└── 📂 part2-secure-portal/
-    │
-    ├── 📂 backend/
-    │   ├── 📂 app/
-    │   │   ├── 📂 routes/
-    │   │   │   ├── 📄 auth.py            
-    │   │   │   ├── 📄 email_analyzer.py  
-    │   │   │   ├── 📄 events.py         
-    │   │   │   └── 📄 users.py          
-    │   │   │
-    │   │   ├── 📄 config.py            
-    │   │   ├── 📄 crud.py            
-    │   │   ├── 📄 database.py           
-    │   │   ├── 📄 dependencies.py        
-    │   │   ├── 📄 main.py              
-    │   │   ├── 📄 models.py             
-    │   │   └── 📄 schemas.py          
+└── part2-secure-portal/
+    ├── backend/
+    │   ├── app/
+    │   │   ├── routes/
+    │   │   ├── config.py
+    │   │   ├── crud.py
+    │   │   ├── database.py
+    │   │   ├── dependencies.py
+    │   │   ├── main.py
+    │   │   ├── models.py
+    │   │   └── schemas.py
     │   │
-    │   ├── 📄 create_db.py               
-    │   ├── 📄 .env.example                   
-    │   ├── 📄 requirements.txt
-    │   └── 📄 README.md
+    │   ├── create_db.py
+    │   ├── requirements.txt
+    │   ├── .env.example
+    │   └── README.md
     │
-    ├── 📂 src/
-    │   ├── 📂 components/
-    │   │   ├── 📄 EventViewerModal.tsx
-    │   │   ├── 📄 Navbar.tsx
-    │   │   ├── 📄 ProtectedRoute.tsx
-    │   │   ├── 📄 SignInPage.tsx
-    │   │   └── 📄 WelcomeBanner.tsx
-    │   │
-    │   ├── 📂 context/
-    │   ├── 📂 pages/
-    │   │   ├── 📄 EventsPage.tsx
-    │   │   ├── 📄 UsersPage.tsx
-    │   │   └── 📄 NotFound.tsx
-    │   │
-    │   ├── 📂 utils/
-    │   ├── 📄 api.ts
-    │   ├── 📄 App.tsx
-    │   ├── 📄 main.tsx
-    │   └── 📄 types.ts
+    ├── src/
+    │   ├── components/
+    │   ├── context/
+    │   ├── pages/
+    │   ├── utils/
+    │   ├── api.ts
+    │   ├── App.tsx
+    │   └── main.tsx
     │
-    ├── 📄 package.json
-    ├── 📄 vite.config.ts
-    ├── 📄 tsconfig.json
-    ├── 📄 .env
-    └── 📄 THREAT_THINKING.md
+    ├── package.json
+    ├── vite.config.ts
+    └── THREAT_THINKING.md
 ```
-### Backend Responsibilities
-
-- Authentication & Session Management (`auth.py`)
-- Role-Based Access Control (`dependencies.py`)
-- User Management (`users.py`)
-- Security Event Management (`events.py`)
-- Gmail Threat Analysis & Incident Ingestion (`email_analyzer.py`)
-- Database Models & Persistence (`models.py`, `crud.py`)
-- Environment & Application Configuration (`config.py`, `.env`)
-
-### Frontend Responsibilities
-
-- Authentication Context (`context/`)
-- Protected Route Handling (`ProtectedRoute.tsx`)
-- Security Event Dashboard (`EventsPage.tsx`)
-- User Administration (`UsersPage.tsx`)
-- Incident Investigation Modal (`EventViewerModal.tsx`)
-- Shared UI Components (`Navbar.tsx`, `WelcomeBanner.tsx`)
-- API Communication Layer (`api.ts`)
-
----
 
 # 🚀 Quick Start
 
