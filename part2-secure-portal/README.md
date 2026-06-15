@@ -347,6 +347,16 @@ The script will dynamically evaluate your host operating system, create an isola
 python run.py
 ```
 
+### Database Persistence Behavior
+
+During the first initialization, the application automatically creates a local SQLite database file inside the backend project directory.
+
+If the database file already exists, subsequent executions will reuse the existing database and preserve all previously created users, incidents, and application data.
+
+This behavior allows the environment to retain state across restarts and prevents accidental loss of data between development sessions.
+
+To start with a completely fresh environment, manually delete the SQLite database file from the backend directory before running the bootstrap process again.
+
 ---
 
 ## Available Endpoints
