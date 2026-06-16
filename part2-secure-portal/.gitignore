@@ -1,9 +1,27 @@
+# === Python & Virtual Environments ===
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.cache/
+
+# === Node / Frontend ===
 node_modules/
 dist/
-backend/.venv/
-backend/__pycache__/
-backend/.pytest_cache/
-backend/users.db
-backend/penguwave.db
+dist-ssr/
+*.local
+
+# === Databases & State ===
+*.db
+*.db-journal
+
+# === Environment Variables / Secrets ===
+.env
 backend/.env
+
+# === OS Files ===
 .DS_Store
+Thumbs.db

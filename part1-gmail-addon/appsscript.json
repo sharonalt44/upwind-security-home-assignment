@@ -1,1 +1,34 @@
-{}
+{
+  "timeZone": "Asia/Jerusalem",
+  "dependencies": {
+    "enabledAdvancedServices": []
+  },
+  "urlFetchWhitelist": [
+    "https://api.penguwave.com/",
+    "https://*.ngrok-free.app/"
+  ],
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/gmail.addons.execute",
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/script.locale"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Email Threat Scorer",
+      "logoUrl": "https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/security/default/24px.svg",
+      "useLocaleFromApp": true,
+      "universalActions": [{
+        "label": "Clear Simulation Cache",
+        "runFunction": "clearCache"
+      }]
+    },
+    "gmail": {
+      "contextualTriggers": [{
+        "unconditional": {},
+        "onTriggerFunction": "buildContextualCard"
+      }]
+    }
+  }
+}
