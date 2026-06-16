@@ -72,13 +72,15 @@ def main():
         run_step("Installing Frontend Node Dependencies (npm install)", "npm install --no-audit --no-fund --quiet", cwd=frontend_dir)
         run_frontend = True
     else:
-        print("\n" + "!" * 75)
+        RED = "\033[1;31m"
+        RESET = "\033[0m"
+        print(RED + "\n" + "!" * 75)
         print("💡 [NOTICE] NODE.JS RUNTIME NOT DETECTED ON THIS MACHINE")
         print("!" * 75)
         print(" -> The React UI Dashboard requires Node.js execution layers.")
         print(" -> BYPASSING FRONTEND BOOT SEQUENCE UPON HOST ARCHITECTURE RESTRICTIONS.")
         print(" -> SUCCESS: Central FastAPI Framework & Swagger Workspace remain 100% stable.")
-        print("!" * 75 + "\n")
+        print("!" * 75 + "\n" + RESET)
         run_frontend = False
 
     print("\n🚀 [SUCCESS] Global environment built and verified smoothly!")
