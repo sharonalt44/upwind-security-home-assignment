@@ -67,6 +67,7 @@ POST /api/v1/addon/analyze
 ```text
 repository-root/
 ├── README.md
+├── requirements.txt
 ├── run.py
 │
 ├── part1-gmail-addon/
@@ -87,7 +88,6 @@ repository-root/
     │   │   └── schemas.py
     │   │
     │   ├── create_db.py
-    │   ├── requirements.txt
     │   ├── .env.example
     │   └── README.md
     │
@@ -105,54 +105,104 @@ repository-root/
      
 ```
 </details>
-
 # 🚀 Quick Start
 
-The repository includes an automated launcher script that prepares the environment and starts all required services.
+The repository includes a cross-platform bootstrapper capable of preparing and launching the complete environment on Windows, macOS, and Linux.
 
 ## Prerequisites
 
-Before running the system for the first time, create a local `.env` file based on the provided `.env.example` template.
+Before running the system for the first time, create the required environment files from their corresponding template files:
 
-The application requires environment-specific configuration such as secrets, seed user configuration, and runtime settings.
+```text
+.env
+part2-secure-portal/.env
+part2-secure-portal/backend/.env
+```
 
-Detailed setup instructions, environment variable descriptions, and user initialization options are documented in:
+using:
 
-- `part2-secure-portal/backend/README.md`
+```text
+.env.example
+part2-secure-portal/.env.example
+part2-secure-portal/backend/.env.example
+```
 
+The provided template values are sufficient for evaluation purposes and can be used without modification.
+
+Detailed environment configuration instructions, variable descriptions, security settings, and seed-user initialization behavior are documented in:
+
+* `part2-secure-portal/backend/README.md`
+
+## Platform Requirements
+
+### Python
+
+Python 3.10 or newer is required.
+
+### Node.js
+
+Node.js (and npm) are required to build and launch the React dashboard.
+
+If Node.js is unavailable, the launcher automatically skips the frontend startup sequence while keeping the FastAPI backend and Swagger documentation fully operational.
+
+## Launching the Platform
+
+Navigate to the repository root directory and execute:
+
+### Windows
 
 ```bash
 python run.py
 ```
 
+### macOS / Linux
+
+```bash
+python3 run.py
+```
+
+## Automated Bootstrap Actions
+
 The launcher automatically:
 
-* Creates a Python virtual environment if missing
-* Installs backend dependencies
-* Initializes the SQLite database
-* Installs frontend dependencies
-* Starts the FastAPI backend
-* Starts the React frontend
+* Creates a Python virtual environment (`.venv`) if missing
+* Detects and repairs incompatible virtual environments created on different operating systems
+* Installs all Python dependencies from the root `requirements.txt`
+* Initializes and seeds the SQLite database
+* Installs frontend Node.js dependencies
+* Launches the FastAPI backend
+* Launches the React frontend when Node.js is available
 
-After startup:
+## Available Services
 
-**React Dashboard**
+### React Dashboard
 
 ```text
 http://localhost:5173
 ```
 
-**FastAPI Backend**
+### FastAPI Backend
 
 ```text
 http://127.0.0.1:8000
 ```
 
-**Swagger Documentation**
+### Swagger Documentation
 
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+---
+
+## Database Persistence
+
+During the first execution, the launcher automatically creates and initializes the local SQLite database.
+
+If the database already exists, subsequent executions preserve all previously created users, incidents, and application state.
+
+To start from a completely clean environment, delete the database file and rerun the launcher.
+
 
 ---
 

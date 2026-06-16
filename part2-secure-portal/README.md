@@ -34,7 +34,6 @@ The project is structured as a unified repository layout, placing frontend confi
 │   ├── .env                      # Local Active Secret Variable Configurations
 │   ├── .env.example              # Generic Blueprint Environment Template
 │   ├── create_db.py              # Idempotent System Identity & Telemetry Seeding Script
-│   └── requirements.txt          # Python Explicit Dependency Lockfile
 ├── src/                          # 💻 Modern Component UI Workspace (React + TS)
 │   ├── components/               # Self-Contained Interface Views & Visual Elements
 │   │   ├── EventViewModal.tsx    # Multi-Tier Remediation & Analytical Window
@@ -54,9 +53,10 @@ The project is structured as a unified repository layout, placing frontend confi
 │   ├── App.tsx                   # Central React Layout Engine & DOM Switchboard
 │   ├── main.tsx                  # Global Virtual DOM Mounting Layer
 │   └── types.ts                  # Shared TypeScript System Boundaries
+├── .env                          # Client-Side Application Environment Target Override
+├── .env.example                  # Generic Blueprint Environment Template
 ├── index.html                    # SPA Basic Markup Entrypoint
 ├── package.json                  # Frontend Dependency Node Manifest
-├── run.py                        # 🚀 Core Multi-OS Automation Lifecycle Launcher
 └── vite.config.ts                # Build Configuration Engine
 ```
 
@@ -304,50 +304,155 @@ The interface preserves a dedicated raw telemetry pane at the base of the `Event
 In active incident response operations, analysts require untampered log visibility to review metadata fields directly from edge devices, ensuring strict audit trail verification.
 
 ---
-
 # 🚀 Deployment Instructions & Ecosystem Initialization
 
 PenguWave utilizes an automated bootstrapper capable of setting up and launching the full-stack environment across any host OS (Windows, macOS, Linux).
 
-## Prerequisites
-
-Ensure your local host machine has the following foundational runtimes installed:
-
-* Python 3.10+
-* Node.js 18+ (with npm)
-
 ---
 
-## 1. Initialize Configuration Environment
+## Environment Variables Mapping
 
-Clone the repository and duplicate the provided blueprint environment template inside the backend directory.
+The platform separates configuration variables into independent operational domains:
 
-The application is configured to run securely out-of-the-box using these predefined variables:
+1. **Backend Layer (`backend/.env`)**
+   Manages database credentials, cryptographic keys, token configurations, and initial administrative bootstrap credentials.
 
-```bash
-cp backend/.env.example backend/.env
-```
+2. **Frontend Layer (`.env`)**
+   Defines runtime network endpoints used by the client-side single-page application dashboard to locate the cluster gateway.
 
-(Optional) If you wish to inspect or modify the runtime parameters, the generated `backend/.env` file contains the following separated structural variables:
+### Centralized Configuration Layer
+
+The backend utilizes a centralized Pydantic-based configuration layer (`config.py`) that loads runtime settings directly from environment variables.
+
+This configuration includes:
+
+* Database connectivity settings
+* JWT authentication policies
+* Account lockout controls
+* Cookie security settings
+* CORS restrictions
+* Initial seed-user definitions used during database initialization
+
 
 ```ini
+# Backend Secret Blueprint Context (backend/.env)
 DATABASE_URL=sqlite:///./users.db
 JWT_SECRET_KEY=penguwave_super_secret_security_operations_key_2026
+
+USER_001_EMAIL=admin@penguwave.io
+USER_001_PASSWORD=admin123
+
+USER_002_EMAIL=analyst@penguwave.io
+USER_002_PASSWORD=pass456
+
+USER_003_EMAIL=viewer@penguwave.io
+USER_003_PASSWORD=view789
+
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+MAX_FAILED_ATTEMPTS=5
+LOCKOUT_DURATION_MINUTES=15
+
+# Frontend Target Context (.env)
+VITE_API_URL=http://localhost:8000
 ```
 
 ---
 
-## 2. Execute the Automated Bootstrapper
+## 🛠️ First-Time Setup
 
-Run the centralized launch utility in your terminal window.
+Before launching the workspace for the first time, create the required environment files from their template counterparts.
 
-The script will dynamically evaluate your host operating system, create an isolated virtual workspace (`.venv`), install all required libraries cleanly, build database structures, inject mock metrics, and spin up both microservice runtimes simultaneously:
+### Repository Root Configuration
+
+Create:
+
+```text
+.env
+```
+
+from:
+
+```text
+.env.example
+```
+
+### Secure Portal Frontend Configuration
+
+Create:
+
+```text
+part2-secure-portal/.env
+```
+
+from:
+
+```text
+part2-secure-portal/.env.example
+```
+
+### Secure Portal Backend Configuration
+
+Create:
+
+```text
+part2-secure-portal/backend/.env
+```
+
+from:
+
+```text
+part2-secure-portal/backend/.env.example
+```
+
+> The provided template values are sufficient for evaluation purposes and can be used without modification.
+
+---
+
+## ⚡ System Initialization Sequence
+
+Once runtime configurations are mapped, navigate to the repository root directory in your system terminal and execute the centralized launcher command tailored to your operating system.
+
+### Windows
 
 ```bash
 python run.py
 ```
 
-### Database Persistence Behavior
+### macOS / Linux
+
+```bash
+python3 run.py
+```
+
+---
+
+## Automated Lifecycle Actions
+
+The cross-platform bootstrapper evaluates the host system state and builds the operational sandbox entirely on-the-fly.
+
+### Isolated Workspace Setup
+
+Spins up a native Python virtual environment (`.venv`) at the repository root and installs all required dependencies from `requirements.txt`.
+
+### Cross-Platform `.venv` Repair
+
+If the workspace was created on a different operating system (for example, a Windows-generated `.venv` opened on macOS), the bootstrapper automatically detects the incompatibility, removes the invalid environment, and recreates it natively.
+
+### Seeding & State Persistence
+
+Creates the local SQLite schema and seeds the initial platform users mapped from your environment criteria. If an existing database already exists, historical application state is preserved.
+
+### Node.js Environment Fault Isolation
+
+The bootstrapper verifies the availability of Node.js.
+
+* If Node.js is installed, frontend dependencies are installed automatically and the Vite dashboard launches alongside the backend.
+* If Node.js is unavailable, frontend initialization is skipped safely while the FastAPI backend and Swagger documentation remain fully operational.
+
+---
+
+## Database Persistence Behavior
 
 During the first initialization, the application automatically creates a local SQLite database file inside the backend project directory.
 
@@ -409,4 +514,3 @@ Integrate static application security testing (SAST) utilities such as:
 
 into the deployment workflow to fail builds automatically upon detecting high-severity CVE profiles.
 
----
